@@ -1,7 +1,26 @@
+# v18.0.6
+
+- Fix speech node text arguments being processed before enter events of the same node
+
+# v18.0.5
+
+- Fixed some graph issues with 5.6
+
+# v18.0.4
+
+- Fix crash in UE 5.6 when right clicking in an empty area in the graph editor
+
+# v18.0.3
+
+- Add support for UE 5.6
+
+# v18.0.2
+
+- Add support for UE 5.5
+
 # v18.0.1
 
 - Add support for UE 5.4
-
 
 # v18
 

@@ -6,6 +6,7 @@
 #include "Math/UnitConversion.h"
 #include "GraphEditorDragDropAction.h"
 #include "DragAndDrop/AssetDragDropOp.h"
+#include "DlgSystem/NYEngineVersionHelpers.h"
 
 #include "DialogueGraphNode_Edge.h"
 #include "DialogueGraphNode.h"
@@ -228,11 +229,15 @@ FReply SDlgGraphPin::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& D
 	{
 		TSharedPtr<FGraphEditorDragDropAction> DragConnectionOp = StaticCastSharedPtr<FGraphEditorDragDropAction>(Operation);
 
-		FVector2D NodeAddPosition = FVector2D::ZeroVector;
+		FNYVector2f NodeAddPosition = FNYVector2f::ZeroVector;
 		TSharedPtr<SGraphNode> OwnerNode = OwnerNodePtr.Pin();
 		if (OwnerNode.IsValid())
 		{
-			NodeAddPosition	= OwnerNode->GetPosition() + FVector2D(MyGeometry.Position);
+#if NY_ENGINE_VERSION >= 506
+			NodeAddPosition	= OwnerNode->GetPosition2f() + MyGeometry.Position;
+#else
+			NodeAddPosition	= OwnerNode->GetPosition() + FNYVector2f{MyGeometry.Position};
+#endif
 
 			//Don't have access to bounding information for node, using fixed offset that should work for most cases.
 			const float FixedOffset = 200.0f;
@@ -243,8 +248,13 @@ FReply SDlgGraphPin::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& D
 			// if the pin widget is nested into another compound
 			if (MyGeometry.Position == FVector2f::ZeroVector)
 			{
-				FVector2D PinOffsetPosition = FVector2D(MyGeometry.AbsolutePosition) - FVector2D(NodeWidget->GetTickSpaceGeometry().AbsolutePosition);
+				const FNYVector2f PinOffsetPosition = FNYVector2f{MyGeometry.AbsolutePosition} - FNYVector2f{NodeWidget->GetTickSpaceGeometry().AbsolutePosition};
+
+#if NY_ENGINE_VERSION >= 506
+				NodeAddPosition = OwnerNode->GetPosition2f() + PinOffsetPosition;
+#else
 				NodeAddPosition = OwnerNode->GetPosition() + PinOffsetPosition;
+#endif
 			}
 
 			if(GetDirection() == EEdGraphPinDirection::EGPD_Input)
@@ -273,7 +283,11 @@ FReply SDlgGraphPin::OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& D
 			TSharedPtr<FAssetDragDropOp> AssetOp = StaticCastSharedPtr<FAssetDragDropOp>(Operation);
 			if (AssetOp->HasAssets())
 			{
+#if NY_ENGINE_VERSION >= 506
+				Node->GetSchema()->DroppedAssetsOnPin(AssetOp->GetAssets(), NodeWidget->GetPosition2f() + MyGeometry.Position, GraphPinObj);
+#else
 				Node->GetSchema()->DroppedAssetsOnPin(AssetOp->GetAssets(), NodeWidget->GetPosition() + FVector2D(MyGeometry.Position), GraphPinObj);
+#endif
 			}
 		}
 		return FReply::Handled();
@@ -318,7 +332,7 @@ FReply SDlgGraphPin::OnAltAndLeftMouseButtonDown(const FGeometry& SenderGeometry
 	TSharedPtr<SGraphNode> ThisOwnerNodeWidget = OwnerNodePtr.Pin();
 	check(ThisOwnerNodeWidget.IsValid());
 	const UDialogueGraphSchema* Schema = CastChecked<UDialogueGraphSchema>(GraphPinObj->GetSchema());
-	const FVector2D& MouseLocation = MouseEvent.GetScreenSpacePosition();
+	const FNYVector2f& MouseLocation = MouseEvent.GetScreenSpacePosition();
 
 	// Is the click inside the node?
 	if (FDlgEditorUtilities::IsPointInsideGeometry(MouseLocation, ThisOwnerNodeWidget->GetCachedGeometry()))
@@ -397,7 +411,7 @@ FText SDlgGraphPin::GetTooltipText() const
 //	return HoverText;
 }
 
-UEdGraphPin* SDlgGraphPin::GetBestLinkedToPinFromSplineMousePosition(const FVector2D& MousePosition) const
+UEdGraphPin* SDlgGraphPin::GetBestLinkedToPinFromSplineMousePosition(const FNYVector2f& MousePosition) const
 {
 	/*
 	ASSUMPTION: that the MousePosition is on a spline (wire) or near a wire
@@ -428,11 +442,11 @@ UEdGraphPin* SDlgGraphPin::GetBestLinkedToPinFromSplineMousePosition(const FVect
 	check(ThisGraphNodeWidget.IsValid());
 
 	// Find P and MP
-	const FVector2D ThisGraphNodeClosestPosition = FGeometryHelper::FindClosestPointOnGeom(
+	const FNYVector2f ThisGraphNodeClosestPosition = FGeometryHelper::FindClosestPointOnGeom(
 		ThisGraphNodeWidget->GetCachedGeometry(),
 		MousePosition
 	);
-	const FVector2D MP = (ThisGraphNodeClosestPosition - MousePosition).GetSafeNormal();
+	const FNYVector2f MP = (ThisGraphNodeClosestPosition - MousePosition).GetSafeNormal();
 
 	// Iterate over all edges, find the best one
 	const TArray<UDialogueGraphNode_Edge*> ChildGraphEdges = ThisGraphNode->GetChildEdgeNodes();
@@ -448,11 +462,11 @@ UEdGraphPin* SDlgGraphPin::GetBestLinkedToPinFromSplineMousePosition(const FVect
 		check(ChildNodeWidget.IsValid());
 
 		// Find C (aka ClosestPointOnChild)
-		const FVector2D ClosestPointOnChild = FGeometryHelper::FindClosestPointOnGeom(ChildNodeWidget->GetCachedGeometry(), MousePosition);
+		const FNYVector2f ClosestPointOnChild = FGeometryHelper::FindClosestPointOnGeom(ChildNodeWidget->GetCachedGeometry(), MousePosition);
 
 		// Find angle between vectors
-		const FVector2D MC = (ClosestPointOnChild - MousePosition).GetSafeNormal();
-		const float DotProduct = FMath::Abs(FVector2D::DotProduct(MC, MP));
+		const FNYVector2f MC = (ClosestPointOnChild - MousePosition).GetSafeNormal();
+		const float DotProduct = FMath::Abs(FNYVector2f::DotProduct(MC, MP));
 		if (DotProduct > BestDotProduct)
 		{
 			// found new angle approaching 180 degrees
